@@ -33,7 +33,7 @@ import flash
 from flash.core.data.data_source import DataSource, DefaultDataKeys, DefaultDataSources
 from flash.core.data.process import Preprocess
 from flash.core.model import Task
-from flash.text.seq2seq.translation.metric import BLEUScore
+from flash.text.seq2seq.core.metric import BLEUScore
 
 from molflash.retrosynthesis.Seq2Seq.LSTM.data import Prd2ReactDataModule
 from molflash.models.Seq2Seq_retro import Seq2Seq,Encoder,Decoder

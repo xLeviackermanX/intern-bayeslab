@@ -1,7 +1,7 @@
 config:
   type: retrosynthesis
   modelName: LSTM
-  filePath: "/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/data.csv"
+  filePath: "/content/dataset.csv"
   preprocessing: input_data
   loss_fn: nn.CrossEntropyLoss()
   metrics: F1(num_classes = dm.reactant_vocab_size,mdmc_average='samplewise')

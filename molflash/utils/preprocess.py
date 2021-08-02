@@ -915,9 +915,9 @@ class PreprocessingFunc:
         reactants_vocab = {v:k for k,v in enumerate(target_characters)}
 
 
-        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/reactants_vocab.json', 'w') as fr:
+        with open('../../retrosynthesis/Seq2Seq/Transformer/reactants_vocab.json', 'w') as fr:
             json.dump(reactants_vocab, fr)
-        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/products_vocab.json', 'w') as fp:
+        with open('../../retrosynthesis/Seq2Seq/Transformer/products_vocab.json', 'w') as fp:
             json.dump(products_vocab, fp)
 
         products_vocab_size = len(products_vocab)
@@ -981,9 +981,9 @@ class PreprocessingFunc:
         products_vocab = {v:k for k,v in enumerate(target_characters)}
 
 
-        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/fwd_reactants_vocab.json', 'w') as fr:
+        with open('../../molflash/retrosynthesis/Seq2Seq/Transformer/fwd_reactants_vocab.json', 'w') as fr:
             json.dump(reactants_vocab, fr)
-        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/fwd_products_vocab.json', 'w') as fp:
+        with open('../../molflash/retrosynthesis/Seq2Seq/Transformer/fwd_products_vocab.json', 'w') as fp:
             json.dump(products_vocab, fp)
 
 
