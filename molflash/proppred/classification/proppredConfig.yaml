@@ -1,0 +1,13 @@
+# logger: 0 or 1. 0 by default
+# if 1, user receives the computation graph
+config:
+    modelType: classification
+    modelName: "GCN"
+    filePath: "bbb.csv"
+    optimizer: optim.Adam
+    learning_rate: 0.0001
+    batch_size: 10
+    splits: [0.7,0.15,0.15]
+    epochs: 1
+    gpus: 1
+    logger: 1

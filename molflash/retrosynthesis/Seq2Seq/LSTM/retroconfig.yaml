@@ -1,0 +1,27 @@
+config:
+  type: retrosynthesis
+  modelName: LSTM
+  filePath: "/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/data.csv"
+  preprocessing: input_data
+  loss_fn: nn.CrossEntropyLoss()
+  metrics: F1(num_classes = dm.reactant_vocab_size,mdmc_average='samplewise')
+
+  batch_size: 32
+  epochs: 50
+  splits: [0.6,0.2,0.2]
+  gpus: 1
+  logger:
+  optimizer: optim.Adam
+  hidden_size: 1024
+  num_layers: 2
+
+  enc_emb_size: 300
+  enc_hid_size: 1024
+  enc_n_layers: 2
+  enc_drop: 0.1
+
+  dec_emb_size: 300
+  dec_hid_size: 1024
+  dec_n_layers: 2
+  dec_drop: 0.1
+  

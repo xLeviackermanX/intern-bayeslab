@@ -1,0 +1,100 @@
+products,reactants
+C S ( = O ) ( = O ) O C C C Br,C S ( = O ) ( = O ) Cl . O C C C Br 
+C = C C ( C ) C c 1 c c c ( C ) c c 1,C = C C = C . C c 1 c c c ( C ) c c 1 
+O = C ( O ) C C C C 1 C C C C 1 = O,C C O C ( = O ) C C C C 1 C C C C 1 = O 
+C C C C C C ( O ) / C = C / Br,C C C C C C ( = O ) / C = C / Br 
+C C C C C C ( O ) / C = C / Br,C C C C C C ( = O ) / C = C / Br 
+C C C C C C ( / C = C / I ) O C,C # C C ( C C C C C ) O C . I I 
+N C ( = O ) N C 1 C C C C 1,C c 1 c c c c c 1 . N C ( N ) = O 
+C C ( O ) C ( = O ) O C C N ( C ) C,C C ( O ) C ( = O ) O . C N ( C ) C C O 
+C C ( = O ) C S C ( F ) ( F ) F,C C ( C ) = O . F C ( F ) ( F ) S Cl 
+O C C N ( C C O ) C C O,O C C N ( C C O ) C C O 
+O C C O C c 1 c n c c n 1,Cl C c 1 c n c c n 1 . O C C O 
+C C N C ( = S ) N C C N C c 1 n c c s 1,C C N = C = S . N C C N C c 1 n c c s 1 
+C N C ( = O ) N C C S C c 1 c n c c n 1,C N = C = O . N C C S C c 1 c n c c n 1 
+C N C ( = O ) N C C N C c 1 n c c s 1,C N = C = O . N C C N C c 1 n c c s 1 
+C n 1 c c 2 c c c c c 2 c c 1 = O,C n 1 c c 2 c c c c c 2 c c 1 = O 
+C N C ( = N O ) N c 1 c c c c c 1,C N C ( = S ) N c 1 c c c c c 1 . N O 
+C C ( = O ) N c 1 c c c ( Cl ) c c 1 F,C C ( = O ) N c 1 c c c c c 1 F . Cl Cl 
+C C C C C C / C = C / C O,C C C C C C / C = C / C ( = O ) O 
+C 1 C C 2 C C 3 C C C 2 C ( C 1 ) C 3,C 1 C C 2 C 3 C C C ( C C 3 ) C 2 C 1 
+C C C C ( C ) N C ( C ) C C,C C C ( C ) N . C C C C ( C ) Br 
+C C C C C C C C C C C C S C C C # N,C = C C # N . C C C C C C C C C C C C S 
+C C ( = O ) N c 1 c c c ( Cl ) c c 1 F,C C ( = O ) N c 1 c c c c c 1 F . Cl Cl 
+C C ( C ) N = C 1 C C C C C 1,C C ( C ) N . O = C 1 C C C C C 1 
+C N ( C ) C C C N C = O,C N ( C ) C C C N . O = C O 
+C = C C C C C C C C = C,C 1 = C C C C C C C 1 . C = C 
+O = C ( C Cl ) N c 1 n n n [nH] 1,N c 1 n n n [nH] 1 . O = C ( Cl ) C Cl 
+c 1 c c c 2 c c c c c 2 c 1,c 1 c c c 2 c ( c 1 ) C C C C 2 
+C S ( = O ) C S c 1 c c c c c 1,C S ( = O ) C Cl . S c 1 c c c c c 1 
+N c 1 n c c ( Cl ) c c 1 Br,Cl . N c 1 c c c c n 1 . [Br-] 
+C C ( C O ) C O C c 1 c c c c c 1,C = C ( C ) C = O . O C c 1 c c c c c 1 
+N N c 1 c c c ( Cl ) c c 1 F,N N c 1 c c c ( Cl ) c c 1 F 
+O C C O C c 1 c c [nH] n 1,Cl C c 1 c c [nH] n 1 . O C C O 
+C = C C N ( C ) C C ( = O ) O C C,C = C C Br . C C O C ( = O ) C N C 
+O = C ( C C C Cl ) C c 1 c c c c c 1,Cl C C C I . O = C C c 1 c c c c c 1 
+C C c 1 c c c c c 1 C ( = O ) O C,C C c 1 c c c c c 1 C ( = O ) O . C O 
+C C O C ( = O ) C N C C O C,C C O C ( = O ) C Br . C O C C N 
+C C O C ( = O ) / C ( N ) = N / O,C C O C ( = O ) C ( N ) = S . N O 
+C C C C C C C ( O ) C N,C C C C C C C 1 C O 1 . N 
+C = C C 1 O C C ( C ) C O 1,C = C C = O . C C ( C O ) C O 
+C = C C 1 O C C ( C ) C O 1,C = C C = O . C C ( C O ) C O 
+O = C ( Cl ) c 1 c c c c c 1,Cl C Cl . O = C ( O ) c 1 c c c c c 1 
+C C C C C C ( C ) ( O ) C S,C C C C C C 1 ( C ) C O 1 . S 
+C O c 1 c n c c ( Cl ) n 1,C [O-] . Cl c 1 c n c c ( Cl ) n 1 
+C c 1 o c c c ( = O ) c 1 O,C C ( O ) c 1 c c c o 1 . O 
+C c 1 o c c c ( = O ) c 1 O,C C ( O ) c 1 c c c o 1 . O 
+N c 1 n c c ( Cl ) n c 1 C ( = O ) O,C O C ( = O ) c 1 n c ( Cl ) c n c 1 N 
+C C C C N C ( C = O ) C O C,C C C C N . C O C C ( Cl ) C = O 
+c 1 c n c 2 c c c n c 2 c 1,N c 1 c c c n c 1 . O C C ( O ) C O 
+C O C ( = N ) N 1 C C N ( C ) C C 1,C N 1 C C N ( C # N ) C C 1 . C [O-] 
+C C C C N ( C C C C ) C ( = S ) Cl,C C C C N C C C C . S = C ( Cl ) Cl 
+C = C C 1 O C C ( C ) C O 1,C = C C = O . C C ( C O ) C O 
+C = C C 1 O C C ( C ) C O 1,C = C C = O . C C ( C O ) C O 
+C O c 1 c c c ( C # N ) c c 1 O C,C O c 1 c c c ( C = O ) c c 1 O C . N O 
+C n 1 c c c c 1 C C # N,C n 1 c c c c 1 . N # C C # N 
+O C 1 C C C C C C C C C C C 1,C 1 C C C C C C C C C C C 1 . O 
+C C ( C ) C 1 O c 2 c c c c c 2 O 1,C C ( C ) C = O . O c 1 c c c c c 1 O 
+C O C ( = O ) C c 1 c c c n 1 C,C O C ( = O ) C ( = O ) c 1 c c c n 1 C 
+C S C C [C@H] ( N ) C ( = O ) O,C S C C C ( N C ( C ) = O ) C ( = O ) O 
+C C O C ( C ) O c 1 c c c c c 1 O,C = C O C C . O c 1 c c c c c 1 O 
+C N ( C ) C 1 = C C C C C 1,C N C . O = C 1 C C C C C 1 
+F c 1 c c c c c 1 C O C 1 C C O C 1,O C C C ( C O ) O C c 1 c c c c c 1 F 
+c 1 c c c ( C 2 C C C C C 2 ) c c 1,c 1 c c c ( C 2 C C C C C 2 ) c c 1 
+C # C C O C c 1 c c c n c 1,C # C C Cl . O C c 1 c c c n c 1 
+O = C ( O ) c 1 c c c c ( Cl ) c 1,N c 1 c c c ( Cl ) c c 1 C ( = O ) O 
+O = C 1 N C C 1 ( C Br ) C Br,O = C 1 N ( Br ) C C 1 ( C Br ) C Br 
+C c 1 c n c ( C C N ( C ) C ) c n 1,C = O . C N C . C c 1 c n c ( C ) c n 1 
+N C ( = O ) C n 1 n n n c 1 S,N . O = C ( O ) C n 1 n n n c 1 S 
+C = C C C C C C C ( = O ) O,C = C C C C C C C O . C C ( C ) = O 
+C = C C C C C C C ( C ) = O,C = C C C C C C C ( = O ) O . [Li] C 
+C C C C C C C C C C C = C C ( = O ) O,C C = C C C C C C C C C C C ( = O ) O 
+C c 1 c c n c ( C N ( C ) C ) c 1 O,C = O . C N C . C c 1 c c n c c 1 O 
+C S C C [C@H] ( N ) C ( = O ) O,C S C C C ( N C ( C ) = O ) C ( = O ) O 
+C O C C S C c 1 c c n c c 1,C I . O C C S C c 1 c c n c c 1 
+C O C 1 C = C C = C C = C 1,C O C 1 = C C = C C = C C 1 
+C C N ( C C ) C C 1 C O 1,C C N C C . Cl C C 1 C O 1 
+C C c 1 c c c ( O C C O ) c c 1,C 1 C O 1 . C C c 1 c c c ( O ) c c 1 
+C O c 1 c c ( C # N ) c c n 1,C O . N # C c 1 c c n c ( Cl ) c 1 
+C S C C [C@H] ( N ) C ( = O ) O,C S C C C ( N C ( C ) = O ) C ( = O ) O 
+C S C C [C@H] ( N ) C ( = O ) O,C S C C C ( N C ( C ) = O ) C ( = O ) O 
+C C C C C C C C N C C C C C C C,C C C C C C C C N C ( = O ) C C C C C C 
+C C ( C ) ( C F ) C ( = O ) C Br,Br Br . C C ( = O ) C ( C ) ( C ) C F 
+C C 1 ( C C C Br ) O C C O 1,C C 1 ( C C C Cl ) O C C O 1 . [Br-] 
+C c 1 c c c c ( N C C ( C ) O ) c 1 C,C C 1 C O 1 . C c 1 c c c c ( N ) c 1 C 
+N C ( = O ) C n 1 n n n c 1 S,N . O = C ( O ) C n 1 n n n c 1 S 
+Cl c 1 c c c 2 s c ( Cl ) n c 2 c 1,Cl c 1 c c c 2 s c ( Cl ) n c 2 c 1 
+C C C C O C ( C ) n 1 c n c n 1,C C C C O C ( C ) Cl . c 1 n c [nH] n 1 
+C S C C ( = N O ) C ( C ) ( C ) C F,C S C C ( = O ) C ( C ) ( C ) C F . N O 
+N # C C = C C 1 C C N C 1,C 1 C C N C 1 . N # C C = C O 
+N c 1 n c 2 c ( s 1 ) C C C C 2,N C ( N ) = S . O = C 1 C C C C C 1 Cl 
+N c 1 n c 2 c ( s 1 ) C C C C 2,N C ( N ) = S . O = C 1 C C C C C 1 Cl 
+C C C C O C ( = O ) C N c 1 c c c c c 1,C C C C O C ( = O ) C N c 1 c c c c c 1 
+C c 1 c c c c ( C ) c 1 N C C # N,C C # N . C c 1 c c c c ( C ) c 1 N 
+N # C C C 1 C O c 2 c c c c c 2 O 1,C = C C C # N . O c 1 c c c c c 1 O 
+C C C C C C 1 = C C = C C 1,C C C C C Br . c 1 c c [cH-] c 1 
+O C c 1 c c c ( Cl ) n c 1,O = C ( O ) c 1 c c c ( Cl ) n c 1 
+O = C ( N O ) c 1 c c c c n 1,C O C ( = O ) c 1 c c c c n 1 . N O 
+C C C C O C C N ( C ) C,C C C C Br . C N ( C ) C C O 
+C C C C C C 1 C C C ( O ) C C 1,C C C C C c 1 c c c ( O ) c c 1 
+C N = C = N c 1 c c c c c 1,C N C ( Cl ) = N c 1 c c c c c 1
