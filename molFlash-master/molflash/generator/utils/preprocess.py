@@ -308,7 +308,7 @@ def split_data(input_transformations_path):
     # train.to_csv(os.path.join(parent, "train.csv"), index=False)
     # validation.to_csv(os.path.join(parent, "validation.csv"), index=False)
     # test.to_csv(os.path.join(parent, "test.csv"), index=False)
-
+    train, validation = train_test_split(train, test_size=0.1, random_state=SEED)
     return train, validation, test
 
 def save_df_property_encoded(file_name, property_change_encoder):
