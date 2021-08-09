@@ -1,0 +1,26 @@
+config:
+  type: Classification
+  modelName: FWDRxnGcn
+  filePath: "~/proc_train_singleprod.csv"
+  preprocessing: PreprocessingFunc.fps_prep
+  collate_fn: 
+  optimizer: optim.Adam
+  loss_fn: nn.BCELoss
+  metrics: F1
+  learning_rate: 0.001
+  batch_size: 2
+  val_split: 0.2
+  splits: [0.8, 0.2, 0.2]
+  test_size: 0.2
+  epochs: 5
+  gpus: 1
+  params: {'in_channel': 40,
+              'hid1': 128,
+              'hid2': 256,
+              'hid3': 128,
+              'lin1': 512,
+              'lin2': 128,
+              'out': 1,
+              'drop': 0.5,
+              }
+  

@@ -1,0 +1,12 @@
+config:
+    modelType: classification
+    modelName: "GCN"
+    loadertype: "pyG"  #or torch
+    filePath: "/home/bayeslabs/molFlash/molflash/proppred/classification/bbb.csv"
+    optimizer: optim.Adam
+    learning_rate: 0.0001
+    batch_size: 10
+    splits: [0.7,0.15,0.15]
+    epochs: 10
+    gpus: 1
+    logger: 0

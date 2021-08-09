@@ -1,0 +1,3 @@
+10:18:09: data.prepare_condition +71: INFO     Property condition tokens: 66
+10:22:48: data.prepare_data +80: INFO     Vocabulary contains 17 tokens: ['*', '^', '$', 'M', 'S', 'T', '_', 'a', 'c', 'e', 'g', 'l', 'o', 'r', 't', 'u', '8']
+10:23:49: data.prepare_data +79: INFO     Vocabulary contains 17 tokens: ['*', '^', '$', 'M', 'S', 'T', '_', 'a', 'c', 'e', 'g', 'l', 'o', 'r', 't', 'u', '8']

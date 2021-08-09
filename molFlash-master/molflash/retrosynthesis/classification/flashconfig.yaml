@@ -1,0 +1,15 @@
+config:
+  type: Classification
+  modelName: InScopeFilterNet
+  filePath: "/home/bayeslabs/New_Arch/proc_train_singleprod.csv"
+  preprocessing: PreprocessingFunc.fps_prep
+  collate_fn: 
+  optimizer: torch.optim.Adam
+  loss_fn: nn.BCELoss()
+  metrics: F1(num_classes = 1)
+  gpus: 0
+  learning_rate: 0.001
+  batch_size: 16
+  splits: [0.8,0.1,0.1]
+  epochs: 2
+  

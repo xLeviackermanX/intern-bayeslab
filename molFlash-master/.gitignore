@@ -1,0 +1,5 @@
+__pycache__/
+lightning_logs/
+tb_logs/
+logs/
+*.csv
