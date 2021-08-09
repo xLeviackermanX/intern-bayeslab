@@ -5,7 +5,6 @@ from collections import defaultdict
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, Type
 from pytorch_lightning.loggers import  TensorBoardLogger
 
-
 # torch imports
 import torch
 import pytorch_lightning as pl
@@ -16,6 +15,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from torchmetrics import Accuracy, F1
 from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+from torch_geometric.nn import GCNConv, GNNExplainer
 
 # flash imports
 import flash
@@ -29,6 +29,8 @@ from molflash.utils.emnPrepro import smile_to_graph
 from molflash.models.emn import EMN
 from molflash.proppred.emnData import emnDataModule
 from molflash.models.gcn import GCN
+from molflash.models.g2g_sg_encoder import SGEncoder
+
 from molflash.proppred.gcnData import gcnDataModule
 from molflash.utils.preprocess import PreprocessingFunc
 
@@ -48,6 +50,7 @@ class CPPClassificationTask(flash.Task):
             metrics: Union[pl.metrics.Metric, Mapping, Sequence, None] = None,
             learning_rate: float = 0.001,
             modelName: str = "EMN",
+            loadertype: str = "torch",
             logger: int = 0
     ):
         super().__init__(
@@ -62,13 +65,14 @@ class CPPClassificationTask(flash.Task):
         self.learning_rate = learning_rate
         self.loss_fn = loss_fn
         self.modelName = modelName
-        if self.modelName == "EMN":
+        self.loadertype = loadertype
+        if self.loadertype == "torch" and self.modelName == "EMN":
             self.model = model()
-        elif self.modelName == "GCN":
+        elif self.loadertype == "pyG":
             self.model = model
 
         if logger:
-            self.logger = TensorBoardLogger("tb_logs", name = "model")
+            self.logger = TensorBoardLogger("tb_logs", name="model")
 
 
     def forward(self, x: Any) -> Any:
@@ -78,11 +82,11 @@ class CPPClassificationTask(flash.Task):
         """
         Basic step function
         """
-        if self.modelName == "EMN":
+        if self.loadertype == "torch" and self.modelName == "EMN":
             x, y = batch[:3], batch[3]
             y_hat = self.model(x)
-        elif self.modelName == "GCN":
-            x, y = batch[0], batch[0].y
+        elif self.loadertype == "pyG":
+            x, y = batch, batch.y
             y_hat = self.model(x.x, x.edge_index)
 
         yh = y_hat > 0.5
@@ -110,24 +114,7 @@ class CPPClassificationTask(flash.Task):
         loss = outputs["loss"]
         self.log_dict({f"train_{k}": v for k, v in outputs["logs"].items()}, on_step=True, on_epoch=True, prog_bar=True)
         self.log("train_metric", outputs["metrics"])
-
-        # if self.current_epoch == 0:
-        #     smile = "CCCC"
-        #     if self.modelName == "GCN":
-        #         sample = PreprocessingFunc.smile_to_tensor(smile, 40)
-        #         # print(sample)
-        #         self.logger.experiment.add_graph(self.model(sample))
         return loss
-
-    def training_epoch_end(self, outputs):
-
-        # meant to get model graph
-        if self.current_epoch == 0 and self.logger:
-            smile = "CCCC"
-            if self.modelName == "GCN":
-                sample = PreprocessingFunc.smile_to_tensor(smile, 40)
-            self.logger.experiment.add_graph(GCN(128, 256, 128, 512, 128, 1, 0.5), (sample.x, sample.edge_index))
-        return
 
     def common_step(self, prefix: str, batch: Any) -> torch.Tensor:
         generated_tokens = self(batch)
@@ -157,6 +144,7 @@ class CPPClassificationTask(flash.Task):
         return optimizer
 
 
+
 if __name__ == "__main__":
 
     parser = ArgumentParser()
@@ -174,43 +162,39 @@ if __name__ == "__main__":
     epochs = configFile.config.epochs
     gpus = configFile.config.gpus
     logger = configFile.config.logger
+    loadertype = configFile.config.loadertype
     loss_fn = nn.BCELoss()
     metrics = F1(num_classes=1)
 
-    if modelName == "EMN":
-        """Load and Create task for EMN Model"""
-        print(f"model Used:{modelName}")
-        dm = emnDataModule(filePath=filePath, transform=smile_to_graph, batch_size=batch_size, splits=splits)
-        dm.prepare_data()
-        dm.setup()
-        model = CPPClassificationTask(model=eval(modelName), loss_fn=loss_fn, learning_rate=learning_rate,
-                                      optimizer=eval(optimizer),
-                                      metrics=metrics, modelName=modelName, logger = logger)
-        torch.save(model.state_dict(), "/home/bayeslabs/molFlash/proppred/")
-        tb_logger = pl_loggers.TensorBoardLogger('logs/EMN')
+    if loadertype == "torch":
+        if modelName == "EMN":
+            """Load and Create task for EMN Model"""
+            print(f"model Used:{modelName}")
+            dm = emnDataModule(filePath=filePath, transform=smile_to_graph, batch_size=batch_size, splits=splits)
+            dm.prepare_data()
+            dm.setup()
+            model = CPPClassificationTask(model=eval(modelName), loss_fn=loss_fn, learning_rate=learning_rate,
+                                          optimizer=eval(optimizer),
+                                          metrics=metrics, modelName=modelName, logger = logger, loadertype = loadertype )
+            tb_logger = pl_loggers.TensorBoardLogger('logs/EMN')
 
-    elif modelName == "GCN":
-        """Load and Create task for GCN Model"""
-        print(f"model Used:{modelName}")
+    elif loadertype == "pyG":
         dm = gcnDataModule(filepath=filePath, splits=[0.2, 0.1], batch_size=batch_size)
         dm.prepare_data()
         dm.setup()
-        params = {'in_channel': 40,
-                  'hid1': 128,
-                  'hid2': 256,
-                  'hid3': 128,
-                  'lin1': 512,
-                  'lin2': 128,
-                  'out': 1,
-                  'drop': 0.5,
-                  }
+        if modelName == "GCN":
+            model = GCN()
+        elif modelName == "SG":
+            model = SGEncoder(exp=1)
 
-        model = CPPClassificationTask(model=GCN(**params), loss_fn=loss_fn, learning_rate=learning_rate,
+        print(f"model Used:{modelName}")
+        model = CPPClassificationTask(model=model, loss_fn=loss_fn, learning_rate=learning_rate,
                                       optimizer=eval(optimizer),
-                                      metrics=metrics, modelName=modelName)
-        tb_logger = pl_loggers.TensorBoardLogger('logs/GCN')
+                                      metrics=metrics, loadertype=loadertype, modelName=modelName)
+        tb_logger = pl_loggers.TensorBoardLogger('logs/'+modelName)
 
-    trainer = flash.Trainer(max_epochs=epochs, gpus=gpus, progress_bar_refresh_rate=20, logger=tb_logger)
+    trainer = flash.Trainer(max_epochs=epochs, gpus=gpus, progress_bar_refresh_rate=20,logger=tb_logger)
     trainer.fit(model, datamodule=dm)
     trainer.test(model, datamodule=dm)
+
 

@@ -1,19 +1,18 @@
 config:
   type: retrosynthesis
   modelName: LSTM
-  filePath: "/content/dataset.csv"
+  filePath: ['/home/bayeslabs/molFlash/molflash/generator/Seq2Seq/train_500.csv', '/home/bayeslabs/molFlash/molflash/generator/Seq2Seq/train_500.csv']
   preprocessing: input_data
   loss_fn: nn.CrossEntropyLoss()
-  metrics: F1(num_classes = dm.reactant_vocab_size,mdmc_average='samplewise')
+  metrics: F1(num_classes = len(dm.target_vocab),mdmc_average='samplewise')
 
   batch_size: 32
-  epochs: 50
-  splits: [0.6,0.2,0.2]
+  epochs: 5
+  splits: [0.8,0.1,0.1]
   gpus: 1
   logger:
   optimizer: optim.Adam
-  hidden_size: 1024
-  num_layers: 2
+  learning_rate: 0.01
 
   enc_emb_size: 300
   enc_hid_size: 1024

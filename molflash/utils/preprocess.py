@@ -3,50 +3,26 @@ from __future__ import absolute_import
 from __future__ import division
 
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, Type
-
-
 import random
-import math
-import time
-import io
-from os import sep
-from numpy.core.fromnumeric import trace
-
 import json
 import re
-import traceback
-
-
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from collections import defaultdict
-
-import rdkit
-from rdkit import Chem, DataStructs
-from rdkit.Chem import AllChem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem
 from rdkit.Chem.rdchem import BondType
 from rdkit import RDLogger
+
 RDLogger.DisableLog('rdApp.*')
-
-from sklearn.model_selection import train_test_split
-
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import Dataset, random_split, DataLoader
-
-import torch_geometric
-from torch_geometric.data import DataLoader as GeoDataLoader
+from torch.utils.data import Dataset
 from torch_geometric.data import Data
-
-from collections import Counter
-
+from molflash.models.jtnn.mol_tree import *
 import traceback
-FPS =  AllChem.GetMorganFingerprintAsBitVect
+
+FPS = AllChem.GetMorganFingerprintAsBitVect
 ND = np.array
 
 random.seed(40)
@@ -54,78 +30,67 @@ random.seed(40)
 
 class PrepDataset(Dataset):
 
-        def __init__(self, list_ips, labels):
+    def __init__(self, list_ips, labels):
+        self.list_ips = list_ips
+        self.labels = labels
 
-            self.list_ips = list_ips
-            self.labels = labels
+    def __getitem__(self, idx):
+        input = self.list_ips[idx]
+        target = self.labels[idx]
 
-        def __getitem__(self, idx): 
+        sample = (input, target)
 
-            input = self.list_ips[idx]
-            target = self.labels[idx]
+        return sample
 
-            sample = (input, target)
+    def __len__(self):
+        return len(self.list_ips)
 
-            return sample
-
-        def __len__(self):
-
-            return len(self.list_ips)
-    
 
 class GeometricDataset(Dataset):
-    
-    def __init__(self, features, transform = None):
 
+    def __init__(self, features, transform=None):
         self.features = features
         self.transform = transform
-        
-    def __len__(self):
 
-        return (len(self.features))
-    
+    def __len__(self):
+        return len(self.features)
+
     def __getitem__(self, index):
-        
         sample = self.features[index]
 
         if self.transform:
             sample = self.transform(sample)
-        
+
         return sample
 
 
 class RxnDataset(torch.utils.data.Dataset):
 
     def __init__(
-        self,
-        list_fps: Any,
-        labels:int
+            self,
+            list_fps: Any,
+            labels: int
     ):
-
         self.list_fps = list_fps
 
         self.labels = labels
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
-
         fps = self.list_fps[index]
         label = self.labels[index]
         sample = (fps, label)
 
         return sample
-    
+
     def __len__(self):
         return len(self.list_fps)
 
 
 def collate_fn(batch):
-
-    inp = [smile for smile,yy in batch]
-    yy = torch.LongTensor([yy for smile,yy in batch])
-    Xs,Ys = PreprocessingFunc.fps_preprocess(inp,yy)
-
-    return Xs,Ys
-
+    inp = [smile for smile, yy in batch]
+    yy = torch.LongTensor([yy for smile, yy in batch])
+    xs, ys = PreprocessingFunc.fps_preprocess(inp, yy)
+    return xs, ys
 
 
 class PreprocessingFunc:
@@ -142,21 +107,18 @@ class PreprocessingFunc:
             }
         )
 
-
     @classmethod
     def one_of_k_encoding(cls, x, allowable_set):
         if x not in allowable_set:
             x = allowable_set[-1]
         return list(map(lambda s: x == s, allowable_set))
 
-
     @classmethod
-    def one_of_k_encoding_unk(cls,x, allowable_set):
+    def one_of_k_encoding_unk(cls, x, allowable_set):
         """Maps inputs not in the allowable set to the last element."""
         if x not in allowable_set:
             x = allowable_set[-1]
         return list(map(lambda s: x == s, allowable_set))
-
 
     @classmethod
     def atom_feature(cls, atom):
@@ -185,7 +147,6 @@ class PreprocessingFunc:
                         cls.one_of_k_encoding(atom.GetNumRadicalElectrons(), number_radical_e_list) +  ######3
                         [atom.GetIsAromatic()] + [atom.HasProp('_ChiralityPossible')]).astype('float')  ######1+1
 
-
     @classmethod
     def graph_representation(cls, mol, max_atoms):
         adj = np.zeros((max_atoms, max_atoms))
@@ -206,7 +167,6 @@ class PreprocessingFunc:
         atom_features[0:num_atoms, 0:40] = np.array(features_tmp)
         return edge_idx, atom_features
 
-
     @classmethod
     def smile_to_tensor(cls, smile, mol_length):
         mol = Chem.MolFromSmiles(smile)
@@ -215,7 +175,6 @@ class PreprocessingFunc:
         x = torch.tensor(x, dtype=torch.float)
         data = Data(x=x, edge_index=edge_index)
         return data
-
 
     @classmethod
     def all_smile_to_tensor(cls, smiles, labels, threshold=40):
@@ -233,7 +192,7 @@ class PreprocessingFunc:
         return graph_data
 
     @classmethod
-    def smiles_features(cls, smiles, threshold = 40):
+    def smiles_features(cls, smiles, threshold=40):
         graph_data = []
         for smile in smiles["smiles"]:
             try:
@@ -269,7 +228,7 @@ class PreprocessingFunc:
                     molecule = Chem.MolFromSmiles(smile)
                     n_atoms = molecule.GetNumAtoms()
                     atoms = [molecule.GetAtomWithIdx(i) for i in range(n_atoms)]
-                    n_edge_features = 5   
+                    n_edge_features = 5
                     edge_features = np.zeros([40, 40, n_edge_features])
                     for bond in molecule.GetBonds():
                         i = bond.GetBeginAtomIdx()
@@ -283,22 +242,20 @@ class PreprocessingFunc:
                 traceback.print_exc()
                 pass
         return graph_data
-    
-    
 
     @classmethod
     def smile_to_graph(cls, smile):
         BONDTYPE_TO_INT = defaultdict(
             lambda: 0,
             {
-                BondType.ZERO :0,
+                BondType.ZERO: 0,
                 BondType.SINGLE: 1,
                 BondType.DOUBLE: 2,
                 BondType.TRIPLE: 3,
                 BondType.AROMATIC: 4
             }
         )
-        
+
         molecule = Chem.MolFromSmiles(smile)
         n_atoms = molecule.GetNumAtoms()
         atoms = [molecule.GetAtomWithIdx(i) for i in range(n_atoms)]
@@ -317,7 +274,6 @@ class PreprocessingFunc:
         edge_features = torch.tensor(edge_features)
         return edge_features
 
-
     @classmethod
     def smileToFPS(cls, path) -> FPS:
         data = pd.read_csv(path)
@@ -328,7 +284,6 @@ class PreprocessingFunc:
             fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024)
             fps = cls.fpsToArray(fp)
         return fps
-        
 
     @classmethod
     def molToFps(cls, smiles, labels, fp_dim=2048):
@@ -337,8 +292,7 @@ class PreprocessingFunc:
         for smile, label in zip(smiles, labels):
             X.append(smile)
             Y.append(label)
-        return PrepDataset(X,Y)
-
+        return PrepDataset(X, Y)
 
     @classmethod
     def rxnToFps(cls, rxns, labels, fp_dim=2048):
@@ -347,8 +301,7 @@ class PreprocessingFunc:
         for rxn, label in zip(rxns, labels):
             X.append(rxn)
             Y.append(label)
-        return PrepDataset(X,Y)
-
+        return PrepDataset(X, Y)
 
     @classmethod
     def fingerprint_mols(cls, mols, fp_dim):
@@ -362,7 +315,7 @@ class PreprocessingFunc:
         for r in [reactions]:
             rxn = AllChem.ReactionFromSmarts(r)
             fp = AllChem.CreateStructuralFingerprintForReaction(rxn)
-            fold_factor = fp.GetNumBits()//fp_dim
+            fold_factor = fp.GetNumBits() // fp_dim
             fp = DataStructs.FoldFingerprint(fp, fold_factor)
         return fp
 
@@ -378,7 +331,7 @@ class PreprocessingFunc:
             pass
 
     @classmethod
-    def fps_preprocess(cls,data):
+    def fps_preprocess(cls, data):
 
         X, y = data
         try:
@@ -390,17 +343,14 @@ class PreprocessingFunc:
             traceback.print_exc()
             pass
 
-
-
     @classmethod
-    def get_labels(cls,data):
+    def get_labels(cls, data):
         prod_to_rules = defaultdict(set)
         rxn_smiles, retro_temps = data
         for idx in tqdm(range(len(rxn_smiles))):
             prod_to_rules[rxn_smiles[idx].split('>')[2]].add(retro_temps[idx])
-            
-        print('prod_to_rules',len(prod_to_rules))
 
+        print('prod_to_rules', len(prod_to_rules))
 
         print('In-Scope Filter training...')
         X, y = [], []
@@ -417,10 +367,10 @@ class PreprocessingFunc:
                     X.append((prod, r))
                     exists.add('{}_{}'.format(prod, r))
 
-        print('X +ve',len(X))
-        #Generate negative examples
+        print('X +ve', len(X))
+        # Generate negative examples
         target_size = len(X) * 2
-        pbar = tqdm(total=target_size//2, desc='data prep (negative)')
+        pbar = tqdm(total=target_size // 2, desc='data prep (negative)')
         prods = list(prod_to_rules.keys())
         exprules = list(prod_to_rules.values())
         while len(X) < target_size:
@@ -428,7 +378,8 @@ class PreprocessingFunc:
             rule = random.choice(exprules)
             key = '{}_{}'.format(prod, r)
             try:
-                if AllChem.ReactionFromSmarts(list(rule)[0]) and not Chem.MolFromSmiles(prod).HasSubstructMatch(Chem.MolFromSmarts(list(rule)[0].split('>')[0])):
+                if AllChem.ReactionFromSmarts(list(rule)[0]) and not Chem.MolFromSmiles(prod).HasSubstructMatch(
+                        Chem.MolFromSmarts(list(rule)[0].split('>')[0])):
                     if key in exists:
                         continue
                     else:
@@ -438,8 +389,7 @@ class PreprocessingFunc:
             except:
                 continue
         pbar.close()
-        return (X,y)
-
+        return (X, y)
 
     @classmethod
     def fpsToArray(cls, fps) -> ND:
@@ -451,7 +401,6 @@ class PreprocessingFunc:
             arrs.append(arr)
         arrs = np.array(arrs)
         return torch.from_numpy(arrs).float()
-
 
     @classmethod
     def unique_rationales(smiles_list):
@@ -475,7 +424,6 @@ class PreprocessingFunc:
                 unique.append(smiles)
         return unique
 
-
     @classmethod
     def clean_data(cls, path, threshold=40):
         data = pd.read_csv(path)
@@ -484,17 +432,16 @@ class PreprocessingFunc:
                 molecule = Chem.MolFromSmiles(data["smiles"][index])
                 n_atoms = molecule.GetNumAtoms()
             except:
-                data.drop(index, inplace = True)
+                data.drop(index, inplace=True)
         data["num_atoms"] = [Chem.MolFromSmiles(smile).GetNumAtoms() for smile in data['smiles']]
         data = data[data["num_atoms"] <= threshold]
-        data = data.drop("num_atoms", axis = 1)
+        data = data.drop("num_atoms", axis=1)
         smiles, labels = list(data["smiles"]), list(data['activity'])
-        graph_data = cls.all_smile_to_tensor(smiles,labels)
+        graph_data = cls.all_smile_to_tensor(smiles, labels)
         return graph_data
 
-
     @classmethod
-    def find_clusters(cls,mol):
+    def find_clusters(cls, mol):
         n_atoms = mol.GetNumAtoms()
         if n_atoms == 1:  # special case
             return [(0,)], [[0]]
@@ -516,9 +463,9 @@ class PreprocessingFunc:
 
         return clusters, atom_cls
 
-
+    # TODO -> Look for its use, or remove it
     @classmethod
-    def extract_subgraph(cls,smiles, selected_atoms):
+    def extract_subgraph(cls, smiles, selected_atoms):
         # try with kekulization
         mol = Chem.MolFromSmiles(smiles)
         Chem.Kekulize(mol)
@@ -539,32 +486,26 @@ class PreprocessingFunc:
         else:
             return None, None
 
-
-
     @classmethod
-    def to_categorical(cls,y, num_classes):
+    def to_categorical(cls, y, num_classes):
         """ 1-hot encodes a tensor """
         return np.eye(num_classes, dtype='uint8')[y]
 
-
     @classmethod
-    def preprocess_data(cls,dataset, human_vocab, machine_vocab, Tx, Ty):
-        
+    def preprocess_data(cls, dataset, human_vocab, machine_vocab, Tx, Ty):
+
         X, Y = zip(*dataset)
-        
+
         X = np.array([cls.string_to_int(i, Tx, human_vocab) for i in X])
         Y = np.array([cls.string_to_int(t, Ty, machine_vocab) for t in Y])
 
-        
         Xoh = np.array(list(map(lambda x: cls.to_categorical(x, num_classes=len(human_vocab)), X)))
         Yoh = np.array(list(map(lambda x: cls.to_categorical(x, num_classes=len(machine_vocab)), Y)))
 
-
         return X, Y, Xoh, Yoh
 
-            
     @classmethod
-    def string_to_int(cls,string, length, vocab):
+    def string_to_int(cls, string, length, vocab):
         """
         Converts all strings in the vocabulary into a list of integers representing the positions of the
         input string's characters in the "vocab"
@@ -578,20 +519,19 @@ class PreprocessingFunc:
         rep -- list of integers (or '<unk>') (size = length) representing the position of the string's character in the vocabulary
         """
 
-        u = vocab["<unk>"]   
+        u = vocab["<unk>"]
         if len(string) > length:
             string = string[:length]
-            
+
         rep = list(map(lambda x: vocab.get(x, u), string))
-        
+
         if len(string) < length:
             rep += [vocab['<pad>']] * (length - len(string))
-        
+
         return rep
 
-
     @classmethod
-    def int_to_string(cls,ints, inv_vocab):
+    def int_to_string(cls, ints, inv_vocab):
         """
         Output a machine readable list of characters based on a list of indexes in the machine's vocabulary
         
@@ -602,10 +542,9 @@ class PreprocessingFunc:
         Returns:
         l -- list of characters corresponding to the indexes of ints thanks to the inv_vocab mapping
         """
-        
+
         l = [inv_vocab[i] for i in ints]
         return l
-
 
     @classmethod
     def softmax(x, axis=-1):
@@ -628,29 +567,26 @@ class PreprocessingFunc:
         else:
             raise ValueError('Cannot apply softmax to a tensor that is 1D')
 
-    
-
     @classmethod
-    def canoSmiles(cls,smiles: str):
+    def canoSmiles(cls, smiles: str):
         try:
             tmp = Chem.MolFromSmiles(smiles)
             if tmp is None:
-                return None, smiles        
+                return None, smiles
             tmp = Chem.RemoveHs(tmp)
             if tmp is None:
                 return None, smiles
             [a.ClearProp('molAtomMapNumber') for a in tmp.GetAtoms()]
-            return tmp, Chem.MolToSmiles(tmp)            
+            return tmp, Chem.MolToSmiles(tmp)
         except:
             return None, smiles
 
-
     @classmethod
-    def canoSmarts(cls,smarts: str):
+    def canoSmarts(cls, smarts: str):
         try:
             tmp = Chem.MolFromSmarts(smarts)
             # tmp.UpdatePropertyCache()   #Added by Babs
-            if tmp is None:        
+            if tmp is None:
                 return None, smarts
             [a.ClearProp('molAtomMapNumber') for a in tmp.GetAtoms()]
             cano = Chem.MolToSmarts(tmp)
@@ -658,11 +594,10 @@ class PreprocessingFunc:
                 cano = smarts
             return tmp, cano
         except:
-            return None,smarts
-
+            return None, smarts
 
     @classmethod
-    def smarts_has_useless_parentheses(cls,smarts: str):
+    def smarts_has_useless_parentheses(cls, smarts: str):
         if len(smarts) == 0:
             return False
         if smarts[0] != '(' or smarts[-1] != ')':
@@ -678,152 +613,144 @@ class PreprocessingFunc:
                     return False
         return True
 
-
-
     @classmethod
-    def remove_space(cls,strs):
+    def remove_space(cls, strs):
         sym_list = ['He',
-        'Li',
-        'Be',
-        'Ne',
-        'Na',
-        'Mg',
-        'Al',
-        'Si',
-        'Cl',
-        'Ar',
-        'Ca',
-        'Sc',
-        'Ti',
-        'Cr',
-        'Mn',
-        'Fe',
-        'Co',
-        'Ni',
-        'Cu',
-        'Zn',
-        'Ga',
-        'Ge',
-        'As',
-        'Se',
-        'Br',
-        'Kr',
-        'Rb',
-        'Sr',
-        'Zr',
-        'Nb',
-        'Mo',
-        'Tc',
-        'Ru',
-        'Rh',
-        'Pd',
-        'Ag',
-        'Cd',
-        'In',
-        'Sn',
-        'Sb',
-        'Te',
-        'Xe',
-        'Cs',
-        'Ba',
-        'La',
-        'Ce',
-        'Pr',
-        'Nd',
-        'Pm',
-        'Sm',
-        'Eu',
-        'Gd',
-        'Tb',
-        'Dy',
-        'Ho',
-        'Er',
-        'Tm',
-        'Yb',
-        'Lu',
-        'Hf',
-        'Ta',
-        'Re',
-        'Os',
-        'Ir',
-        'Pt',
-        'Au',
-        'Hg',
-        'Tl',
-        'Pb',
-        'Bi',
-        'Po',
-        'At',
-        'Rn',
-        'Fr',
-        'Ra',
-        'Ac',
-        'Th',
-        'Pa',
-        'Np',
-        'Pu',
-        'Am',
-        'Cm',
-        'Bk',
-        'Cf',
-        'Es',
-        'Fm',
-        'Md',
-        'No',
-        'Lr',
-        'Rf',
-        'Db',
-        'Sg',
-        'Bh',
-        'Hs',
-        'Mt',
-        'Ds',
-        'Rg',
-        'Cn',
-        'Nh',
-        'Fl',
-        'Mc',
-        'Lv',
-        'Ts',
-        'Og']
+                    'Li',
+                    'Be',
+                    'Ne',
+                    'Na',
+                    'Mg',
+                    'Al',
+                    'Si',
+                    'Cl',
+                    'Ar',
+                    'Ca',
+                    'Sc',
+                    'Ti',
+                    'Cr',
+                    'Mn',
+                    'Fe',
+                    'Co',
+                    'Ni',
+                    'Cu',
+                    'Zn',
+                    'Ga',
+                    'Ge',
+                    'As',
+                    'Se',
+                    'Br',
+                    'Kr',
+                    'Rb',
+                    'Sr',
+                    'Zr',
+                    'Nb',
+                    'Mo',
+                    'Tc',
+                    'Ru',
+                    'Rh',
+                    'Pd',
+                    'Ag',
+                    'Cd',
+                    'In',
+                    'Sn',
+                    'Sb',
+                    'Te',
+                    'Xe',
+                    'Cs',
+                    'Ba',
+                    'La',
+                    'Ce',
+                    'Pr',
+                    'Nd',
+                    'Pm',
+                    'Sm',
+                    'Eu',
+                    'Gd',
+                    'Tb',
+                    'Dy',
+                    'Ho',
+                    'Er',
+                    'Tm',
+                    'Yb',
+                    'Lu',
+                    'Hf',
+                    'Ta',
+                    'Re',
+                    'Os',
+                    'Ir',
+                    'Pt',
+                    'Au',
+                    'Hg',
+                    'Tl',
+                    'Pb',
+                    'Bi',
+                    'Po',
+                    'At',
+                    'Rn',
+                    'Fr',
+                    'Ra',
+                    'Ac',
+                    'Th',
+                    'Pa',
+                    'Np',
+                    'Pu',
+                    'Am',
+                    'Cm',
+                    'Bk',
+                    'Cf',
+                    'Es',
+                    'Fm',
+                    'Md',
+                    'No',
+                    'Lr',
+                    'Rf',
+                    'Db',
+                    'Sg',
+                    'Bh',
+                    'Hs',
+                    'Mt',
+                    'Ds',
+                    'Rg',
+                    'Cn',
+                    'Nh',
+                    'Fl',
+                    'Mc',
+                    'Lv',
+                    'Ts',
+                    'Og']
         for sym in sym_list:
             try:
-                s_char,e_char = list(sym)
-                pat = re.search(rf"\b{s_char} {e_char}\b",strs).group(0)
-                pat1= pat.replace(' ','') 
-                strs = re.sub(pat,pat1, strs)
+                s_char, e_char = list(sym)
+                pat = re.search(rf"\b{s_char} {e_char}\b", strs).group(0)
+                pat1 = pat.replace(' ', '')
+                strs = re.sub(pat, pat1, strs)
             except:
                 continue
         return strs
 
-    
     @classmethod
-    def delete_space(cls,s):
+    def delete_space(cls, s):
         pat = re.compile(f'\s+(?=[^[\]]*\])')
         return re.sub(pat, "", s)
 
-
     @classmethod
-    def to_categorical(cls,y: int, num_classes: int):
+    def to_categorical(cls, y: int, num_classes: int):
         """ 1-hot encodes a tensor """
         return np.eye(num_classes, dtype='uint8')[y]
 
-
     @classmethod
-    def preprocess_data(cls,dataset: Any, human_vocab: dict, machine_vocab: dict, Tx, Ty):
-        
-        X,Y = zip(*dataset)
-        
+    def preprocess_data(cls, dataset: Any, human_vocab: dict, machine_vocab: dict, Tx, Ty):
+
+        X, Y = zip(*dataset)
+
         X = np.array([cls.string_to_int(i, Tx, human_vocab) for i in X])
         Y = np.array([cls.string_to_int(t, Ty, machine_vocab) for t in Y])
 
-        
         Xoh = np.array(list(map(lambda x: cls.to_categorical(x, num_classes=len(human_vocab)), X)))
         Yoh = np.array(list(map(lambda x: cls.to_categorical(x, num_classes=len(machine_vocab)), Y)))
 
-
-        return X,Y,Xoh,Yoh
-            
+        return X, Y, Xoh, Yoh
 
     @classmethod
     def string_to_int(cls, string, length, vocab):
@@ -840,17 +767,16 @@ class PreprocessingFunc:
         rep -- list of integers (or '<unk>') (size = length) representing the position of the string's character in the vocabulary
         """
 
-        u = vocab["<unk>"]   
+        u = vocab["<unk>"]
         if len(string) > length:
             string = string[:length]
-            
+
         rep = list(map(lambda x: vocab.get(x, u), string))
-        
+
         if len(string) < length:
             rep += [vocab['<pad>']] * (length - len(string))
-        
-        return rep
 
+        return rep
 
     @classmethod
     def int_to_string(cls, ints, inv_vocab):
@@ -864,34 +790,31 @@ class PreprocessingFunc:
         Returns:
         l -- list of characters corresponding to the indexes of ints thanks to the inv_vocab mapping
         """
-        
+
         l = [inv_vocab[i] for i in ints]
         return l
 
-
-
     @classmethod
-    def input_data(cls,data_path):
+    def input_data(cls, data_path):
         dataset = []
         input_characters = set()
         target_characters = set()
 
         data_path = data_path
-        df = pd.read_csv(data_path, nrows=5000)
+        df = pd.read_csv(data_path, nrows=100)
         x = list(df['products'])
         y = list(df['reactants'])
 
-    
-        for input_text, target_text in zip(x,y):
-            
-            input_text = ' '.join(['<bos>',input_text,'<eos>'])
-            target_text = ' '.join(['<bos>',target_text,'<eos>'])
+        for input_text, target_text in zip(x, y):
+
+            input_text = ' '.join(['<bos>', input_text, '<eos>'])
+            target_text = ' '.join(['<bos>', target_text, '<eos>'])
             input_text = input_text.split(' ')
             target_text = target_text.split(' ')
 
-            if len(input_text)<=50:
+            if len(input_text) <= 50:
 
-                ds = (input_text,target_text)
+                ds = (input_text, target_text)
                 dataset.append(ds)
                 for char in input_text:
                     if char not in input_characters:
@@ -899,25 +822,26 @@ class PreprocessingFunc:
                 for char in target_text:
                     if char not in target_characters:
                         target_characters.add(char)
-                        
+
         z = np.array(dataset)
-        print("length of dataset",len(z))
+        print("length of dataset", len(z))
 
         Tx = 50
         Ty = 50
 
         input_characters = sorted(list(input_characters)) + ['<unk>', '<pad>']
         target_characters = sorted(list(target_characters)) + ['<unk>', '<pad>']
-        
+
         # target_characters.remove('')
-        
-        products_vocab = {v:k for k,v in enumerate(input_characters)}
-        reactants_vocab = {v:k for k,v in enumerate(target_characters)}
 
+        products_vocab = {v: k for k, v in enumerate(input_characters)}
+        reactants_vocab = {v: k for k, v in enumerate(target_characters)}
 
-        with open('reactants_vocab.json', 'w') as fr:
+        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/reactants_vocab.json',
+                  'w') as fr:
             json.dump(reactants_vocab, fr)
-        with open('products_vocab.json', 'w') as fp:
+        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/products_vocab.json',
+                  'w') as fp:
             json.dump(products_vocab, fp)
 
         products_vocab_size = len(products_vocab)
@@ -928,35 +852,34 @@ class PreprocessingFunc:
         prod_bos = products_vocab['<bos>']
         react_bos = reactants_vocab['<bos>']
 
-        inv_reactants_vocab = {v:k for k,v in reactants_vocab.items()} 
+        inv_reactants_vocab = {v: k for k, v in reactants_vocab.items()}
 
         X, Y, Xoh, Yoh = cls.preprocess_data(dataset, products_vocab, reactants_vocab, Tx, Ty)
-        
+
         return RxnDataset(X, Y), products_vocab_size, reactants_vocab_size, prod_pad, react_pad
 
     @classmethod
-    def fwd_input_data(cls,data_path):
+    def fwd_input_data(cls, data_path):
         dataset = []
         input_characters = set()
         target_characters = set()
 
         data_path = data_path
-        df = pd.read_csv(data_path, nrows=5000)
-        
+        df = pd.read_csv(data_path, nrows=500)
+
         x = list(df['reactants'])
         y = list(df['products'])
 
-    
-        for input_text, target_text in zip(x,y):
-            
-            input_text = ' '.join(['<bos>',input_text,'<eos>'])
-            target_text = ' '.join(['<bos>',target_text,'<eos>'])
+        for input_text, target_text in zip(x, y):
+
+            input_text = ' '.join(['<bos>', input_text, '<eos>'])
+            target_text = ' '.join(['<bos>', target_text, '<eos>'])
             input_text = input_text.split(' ')
             target_text = target_text.split(' ')
 
-            if len(input_text)<=50:
+            if len(input_text) <= 50:
 
-                ds = (input_text,target_text)
+                ds = (input_text, target_text)
                 dataset.append(ds)
                 for char in input_text:
                     if char not in input_characters:
@@ -964,9 +887,9 @@ class PreprocessingFunc:
                 for char in target_text:
                     if char not in target_characters:
                         target_characters.add(char)
-                        
+
         z = np.array(dataset)
-        print("length of dataset",len(z))
+        print("length of dataset", len(z))
 
         Tx = 50
         Ty = 50
@@ -974,18 +897,17 @@ class PreprocessingFunc:
         input_characters = sorted(list(input_characters)) + ['<unk>', '<pad>']
         target_characters = sorted(list(target_characters)) + ['<unk>', '<pad>']
 
-        
         # target_characters.remove('')
-        
-        reactants_vocab = {v:k for k,v in enumerate(input_characters)}
-        products_vocab = {v:k for k,v in enumerate(target_characters)}
 
+        reactants_vocab = {v: k for k, v in enumerate(input_characters)}
+        products_vocab = {v: k for k, v in enumerate(target_characters)}
 
-        with open('fwd_reactants_vocab.json', 'w') as fr:
+        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/fwd_reactants_vocab.json',
+                  'w') as fr:
             json.dump(reactants_vocab, fr)
-        with open('fwd_products_vocab.json', 'w') as fp:
+        with open('/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/fwd_products_vocab.json',
+                  'w') as fp:
             json.dump(products_vocab, fp)
-
 
         reactants_vocab_size = len(reactants_vocab)
         products_vocab_size = len(products_vocab)
@@ -995,16 +917,13 @@ class PreprocessingFunc:
         prod_bos = products_vocab['<bos>']
         react_bos = reactants_vocab['<bos>']
 
-        inv_products_vocab = {v:k for k,v in products_vocab.items()}
+        inv_products_vocab = {v: k for k, v in products_vocab.items()}
 
-    
-
-        inv_products_vocab = {v:k for k,v in products_vocab.items()} 
+        inv_products_vocab = {v: k for k, v in products_vocab.items()}
 
         X, Y, Xoh, Yoh = cls.preprocess_data(dataset, reactants_vocab, products_vocab, Tx, Ty)
-        
-        return RxnDataset(X, Y), products_vocab_size, reactants_vocab_size, prod_pad, react_pad
 
+        return RxnDataset(X, Y), products_vocab_size, reactants_vocab_size, prod_pad, react_pad
 
     @classmethod
     def get_graphfeatures(cls, sample: Any) -> Any:
@@ -1012,22 +931,23 @@ class PreprocessingFunc:
         tuplesmiles, y = sample
         smile1 = tuplesmiles[0]
         smile2 = tuplesmiles[1]
-       
+
         mol = Chem.MolFromSmiles(smile1)
         mol1 = Chem.MolFromSmiles(smile2)
         edge_index, x = cls.graph_representation(mol, 40)
         edge_index = torch.tensor(edge_index, dtype=torch.long)
         x = torch.tensor(x, dtype=torch.float)
-        
+
         edge_index1, x1 = cls.graph_representation(mol1, 40)
         edge_index1 = torch.tensor(edge_index1, dtype=torch.long)
         x1 = torch.tensor(x1, dtype=torch.float)
-        
+
         y = torch.tensor(y, dtype=torch.float).view(1, -1)
-        data = Data(x=x, edge_index=edge_index,x1=x1, edge_index1=edge_index1, y=y)
+        data = Data(x=x, edge_index=edge_index, x1=x1, edge_index1=edge_index1, y=y)
         return data
 
     """ it has to be merged with graph_features and made flexible"""
+
     @classmethod
     def get_graphfeatures1(cls, sample: Any) -> Any:
         # convert the given smile to graph features [x, edge_index, label]
@@ -1041,14 +961,13 @@ class PreprocessingFunc:
         return data
 
     @classmethod
-    def getFwdLabels(cls,data):
+    def getFwdLabels(cls, data):
         prod_to_rules = defaultdict(set)
         rxn_smiles = data['rxn_smiles']
         for idx in tqdm(range(len(rxn_smiles))):
             prod_to_rules[rxn_smiles[idx].split('>')[2]].add(rxn_smiles[idx].split('>')[0])
-            
-        print('prod_to_rules',len(prod_to_rules))
 
+        print('prod_to_rules', len(prod_to_rules))
 
         print('In-Scope Filter training...')
         X, y = [], []
@@ -1065,10 +984,10 @@ class PreprocessingFunc:
                     X.append((prod, r))
                     exists.add('{}_{}'.format(prod, r))
 
-        print('X +ve',len(X))
-        #Generate negative examples
+        print('X +ve', len(X))
+        # Generate negative examples
         target_size = len(X) * 2
-        pbar = tqdm(total=target_size//2, desc='data prep (negative)')
+        pbar = tqdm(total=target_size // 2, desc='data prep (negative)')
         prods = list(prod_to_rules.keys())
         exprules = list(prod_to_rules.values())
         while len(X) < target_size:
@@ -1082,6 +1001,127 @@ class PreprocessingFunc:
                 X.append((prod, list(rule)[0]))
                 pbar.update(1)
         pbar.close()
-        return (X,y)
+        return (X, y)
 
 
+def tensorize(smiles, assm=True):
+    mol_tree = MolTree(smiles)
+    mol_tree.recover()
+    if assm:
+        mol_tree.assemble()
+        for node in mol_tree.nodes:
+            if node.label not in node.cands:
+                node.cands.append(node.label)
+
+    del mol_tree.mol
+    for node in mol_tree.nodes:
+        del node.mol
+
+    return mol_tree
+
+
+class SpecialTokens:
+    bos = '<bos>'
+    eos = '<eos>'
+    pad = '<pad>'
+    unk = '<unk>'
+
+
+class CharVocab:
+    @classmethod
+    def from_data(cls, data, *args, **kwargs):
+        chars = set()
+        for string in data:
+            chars.update(string)
+
+        return cls(chars, *args, **kwargs)
+
+    def __init__(self, chars, ss=SpecialTokens):
+        if (ss.bos in chars) or (ss.eos in chars) or \
+                (ss.pad in chars) or (ss.unk in chars):
+            raise ValueError('SpecialTokens in chars')
+
+        all_syms = sorted(list(chars)) + [ss.bos, ss.eos, ss.pad, ss.unk]
+
+        self.ss = ss
+        self.c2i = {c: i for i, c in enumerate(all_syms)}
+        self.i2c = {i: c for i, c in enumerate(all_syms)}
+
+    def __len__(self):
+        return len(self.c2i)
+
+    @property
+    def bos(self):
+        return self.c2i[self.ss.bos]
+
+    @property
+    def eos(self):
+        return self.c2i[self.ss.eos]
+
+    @property
+    def pad(self):
+        return self.c2i[self.ss.pad]
+
+    @property
+    def unk(self):
+        return self.c2i[self.ss.unk]
+
+    def char2id(self, char):
+        if char not in self.c2i:
+            return self.unk
+
+        return self.c2i[char]
+
+    def id2char(self, id):
+        if id not in self.i2c:
+            return self.ss.unk
+
+        return self.i2c[id]
+
+    def string2ids(self, string, add_bos=False, add_eos=False):
+        ids = [self.char2id(c) for c in string]
+
+        if add_bos:
+            ids = [self.bos] + ids
+        if add_eos:
+            ids = ids + [self.eos]
+
+        return ids
+
+    def ids2string(self, ids, rem_bos=True, rem_eos=True):
+        if len(ids) == 0:
+            return ''
+        if rem_bos and ids[0] == self.bos:
+            ids = ids[1:]
+        if rem_eos and ids[-1] == self.eos:
+            ids = ids[:-1]
+
+        string = ''.join([self.id2char(id) for id in ids])
+
+        return string
+
+
+class OneHotVocab(CharVocab):
+    def __init__(self, *args, **kwargs):
+        super(OneHotVocab, self).__init__(*args, **kwargs)
+        self.vectors = torch.eye(len(self.c2i))
+
+
+def get_vocabulary(data):
+    return OneHotVocab.from_data(data)
+
+
+def string2tensor(string, vocabulary):
+    ids = vocabulary.string2ids(string, add_bos=True, add_eos=True)
+    tensor = torch.tensor(
+        ids, dtype=torch.long,
+    )
+
+    return tensor
+
+
+def tensor2string(tensor, vocabulary):
+    ids = tensor.tolist()
+    string = vocabulary.ids2string(ids, rem_bos=True, rem_eos=True)
+
+    return string

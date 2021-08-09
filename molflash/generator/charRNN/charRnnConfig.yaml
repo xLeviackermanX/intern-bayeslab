@@ -4,6 +4,7 @@ config:
   filePath: "/home/bayeslabs/molFlash/molflash/generator/charRNN/train.csv"
   preprocessing: 
   loss_fn: nn.CrossEntropyLoss()
+  learning_rate: 0.001
   batch_size: 32
   epochs: 5
   gpus: 1

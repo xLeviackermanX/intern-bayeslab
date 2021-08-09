@@ -1,16 +1,24 @@
 from omegaconf import OmegaConf
 from argparse import ArgumentParser
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, Type
+
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from torch import nn, Tensor, optim
 from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+
 import flash
 from flash.core.model import Task
-from molflash.generator.Seq2Seq.s2sdata import Seq2SeqDataModule
-from molflash.models.seq2seq_new import Seq2Seq, Encoder, Decoder
+from torch.utils.data import dataloader
+from torchmetrics import F1
+
+
+from molflash.generator.Seq2Seq.seq2seq_data import Seq2SeqDataModule
+from molflash.models.LSTM_encoder import Encoder
+from molflash.models.LSTM_decoder import Decoder
+from molflash.generator.utils.preprocess import predict_preprocess, tokenize
 
 CUDA_LAUNCH_BLOCKING = 1
 
@@ -35,6 +43,7 @@ class Seq2SeqGenTask(Task):
         optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
         metrics: Union[pl.metrics.Metric, Mapping, Sequence, None] = None,
         learning_rate: float = 0.001,
+        vocab = None,
         tgt_vocab_size: int = None,
     ):
 
@@ -56,6 +65,7 @@ class Seq2SeqGenTask(Task):
         self.q_logvar = nn.Linear(hidden_size, hidden_size)
         self.tgt_vocab_size = tgt_vocab_size
         self.metrics = metrics
+        self.vocab = vocab
 
     def forward(self, x: Any) -> Any:
         """pass inputs to encoder
@@ -91,11 +101,13 @@ class Seq2SeqGenTask(Task):
         '''
         
         x = batch
+        x = x.permute(1,0)
         source = x
+        
         loss = 0
         batch_size = source.shape[0]
         target_len = source.shape[1]
-        target_vocab_size = self.tgt_vocab_size
+        target_vocab_size = len(self.vocab)
 
         outputs = torch.zeros(target_len, batch_size, target_vocab_size)
 
@@ -135,6 +147,45 @@ class Seq2SeqGenTask(Task):
         output["logs"] = logs
 
         return output
+
+    
+    def predict(self, x:Any):
+
+        x = predict_preprocess(x, self.vocab, tokenize)
+        # dataloader = DataLoader(x, batch_size = 1, collate_fn = )
+        x = x.permute(1,0)
+        source = x
+        
+        batch_size = source.shape[0]
+        target_len = source.shape[1]
+        target_vocab_size = len(self.vocab)
+
+        outputs = torch.zeros(target_len, batch_size, target_vocab_size)
+
+        hidden, cell, kl_loss = self.forward(source)
+       
+        hidden = torch.cat([hidden]*batch_size, dim=1)
+        cell = torch.cat([cell]*batch_size, dim=1)
+
+        # Grab the first input to the Decoder which will be <SOS> token
+        x_dec = source[:, 0].unsqueeze(0)
+        
+        for t in range(1, target_len):
+            # Use previous hidden, cell as context from encoder at start
+            output, hidden, cell = self.dec_forward(x_dec, hidden, cell)
+    
+            # Store next output prediction
+            outputs[t] = output
+
+            # Get the best word the Decoder predicted (index in the vocabulary)
+            best_guess = output.argmax(1)
+            x_dec = best_guess.unsqueeze(0)
+
+        y_hat = outputs
+        smiles = [self.vocab.stoi(x) for x in y_hat]
+        return smiles
+        
+
 
     def training_step(self, batch: Any, batch_idx: int) -> Tensor:
         outputs = self.step(batch,batch_idx)
@@ -183,12 +234,13 @@ if __name__=="__main__":
     configFile = OmegaConf.load(args.config)
 
     config = configFile.config
+
     dm = Seq2SeqDataModule(config.filePath, batch_size=config.batch_size, splits=config.splits)
     dm.prepare_data()
     dm.setup()
 
 
-    input_size = len(dm.vocab)
+    input_size = len(dm.source_vocab)
 
     encoder_net = Encoder(input_size=input_size, embedding_size=config.enc_emb_size, hidden_size=config.enc_hid_size, num_layers=config.enc_n_layers, p=config.enc_drop)
     decoder_net = Decoder(input_size=input_size, embedding_size=config.dec_emb_size, hidden_size=config.dec_hid_size, output_size=input_size, num_layers=config.dec_n_layers, p=config.dec_drop)
@@ -196,7 +248,8 @@ if __name__=="__main__":
     model = Seq2SeqGenTask(encoder=encoder_net, decoder=decoder_net, hidden_size=config.hidden_size,
                            learning_rate=config.lr, loss_fn=eval(config.loss_fn), optimizer=eval(config.optimizer),
                            metrics=eval(config.metrics)(num_classes=input_size, mdmc_average='samplewise'),
-                           tgt_vocab_size=input_size)
+                           vocab=dm.source_vocab)
+
     tb_logger = pl_loggers.TensorBoardLogger('logs/Generation')
 
     trainer = flash.Trainer(max_epochs=config.epochs, gpus=config.gpus, progress_bar_refresh_rate=20, logger=tb_logger)
@@ -204,4 +257,10 @@ if __name__=="__main__":
     trainer.fit(model, datamodule=dm)
 
     trainer.test(model, datamodule=dm)
+
+
+    # ckpt_file_path = '/home/bayeslabs/molFlash/molflash/generator/transformer/logs/Generation/default/version_0/checkpoints/epoch=2-step=7538.ckpt'
+    # ckpt = torch.load(ckpt_file_path)
+
+    # model.load_state_dict(ckpt["state_dict"])
 

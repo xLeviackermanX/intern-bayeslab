@@ -1,0 +1,19 @@
+# encoders ->  SGEncoder, GCNEncoder, GraphConvEncoder, GatedGraphConvEncoder,
+# SplineEncoder, TAGConvEncoder, WLEncoder
+config:
+  type: Generation
+  modelName: LSTM
+  filePath: "/home/bayeslabs/moltorch_architecture/mol/Generator/dataset.csv"
+  encoder: SGEncoder
+  decoder: BasicDecoder
+  preprocessing: input_data
+  loss_fn: nn.CrossEntropyLoss()
+  splits: [0.7,0.15,0.15]
+  lr: 0.001
+  batch_size: 64
+  epochs: 200
+  loss_fn_1: nn.BCELoss()
+  loss_fn_2: nn.MSELoss()
+  gpus: 1
+  logger:
+  optimizer: optim.Adam

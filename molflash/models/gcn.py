@@ -16,22 +16,20 @@ from torch_geometric.nn import SGConv
 
 class GCN(torch.nn.Module):
 
-    def __init__(self, hid1, hid2, hid3, lin1, lin2, out, drop, in_channel=40):
+    def __init__(self, hid1: int = 128, hid2: int = 256, hid3: int = 128, lin1: int = 512, lin2 = 128, out: int = 1,
+                 drop: int = 0.5, in_channel: int = 40):
         super(GCN, self).__init__()
 
         self.drop = drop
         self.conv1 = GCNConv(in_channel, hid1)
         self.conv2 = GCNConv(hid1, hid2)
         self.conv3 = GCNConv(hid2, hid3)
-        # self.conv1=SGConv(in_channel,hid1,K)
-        # self.conv2=SGConv(hid1,hid2,K)
-        # self.conv3=GATConv(hid2,hid3)
         self.l1 = nn.Linear(40 * hid3, lin1)
         self.l2 = nn.Linear(lin1, lin2)
         self.l3 = nn.Linear(lin2, out)
         self.l = nn.LeakyReLU(0.1)
 
-    def forward(self, x,edge_index):
+    def forward(self, x, edge_index):
         x = self.l(self.conv1(x, edge_index))
         x = F.dropout(x, self.drop, training=self.training)
         x = self.l(self.conv2(x, edge_index))
@@ -45,6 +43,10 @@ class GCN(torch.nn.Module):
         x = self.l3(x)
         x = torch.sigmoid(x)
         return x
+    
+    def __repr__(self):
+        return {"hid1":hid1 , "hid2": hid2, "hid3": hid3}
+
 
     def cam(self):
         return self.l1.weight.data, self.grad_value

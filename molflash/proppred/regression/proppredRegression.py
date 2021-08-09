@@ -23,9 +23,9 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 # flash imports
 import flash
-from flash.core.data.data_source import DataSource, DefaultDataKeys, DefaultDataSources
-from flash.core.data.process import Preprocess
-from flash.core.data.transforms import ApplyToKeys
+from flash.data.data_source import DataSource, DefaultDataKeys, DefaultDataSources
+from flash.data.process import Preprocess
+from flash.data.transforms import ApplyToKeys
 from flash.core.classification import ClassificationTask
 
 # custom imports

@@ -1,5 +1,3 @@
-
-
 from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
@@ -18,7 +16,7 @@ import time
 import io
 from os import sep
 
-from nltk.translate.bleu_score import sentence_bleu
+# from nltk.translate.bleu_score import sentence_bleu
 import random
 from sklearn.model_selection import train_test_split
 
@@ -464,42 +462,60 @@ def delete_space(s):
     return re.sub(pat, "", s)
 
 
+def tokenize(string):
+    string =  ' '.join([c for c in canoSmiles(string)[1]])
+    string = remove_space(delete_space(string))
+    return string
 
-def prepareData(data):
-    cano_prod = ' '.join([c for c in canoSmiles(data.strip())[1]])
-    products = remove_space(delete_space(cano_prod))
-    return products
 
 def build_vocab(filepath, tokenizer):
-  counter = Counter()
-  with io.open(filepath, encoding="utf8") as f:
-    for string_ in f:
-      counter.update(tokenizer(string_))
-  return Vocab(counter, specials=['<unk>', '<pad>', '<bos>', '<eos>'])
+    counter = Counter()
+    strings = list(pd.read_csv(filepath)['smiles'])
+      
+    for string_ in strings:
+        counter.update(tokenizer(string_))
+    return Vocab(counter, specials=['<unk>', '<pad>', '<bos>', '<eos>'])
 
 
-def data_process(filepaths, prod_vocab, react_vocab):
-  raw_prod_iter = iter(io.open(filepaths[0], encoding="utf8"))
-  raw_react_iter = iter(io.open(filepaths[1], encoding = "utf8"))
-  data = []
-  for (raw_prod, raw_react) in zip(raw_prod_iter, raw_react_iter):
-    prod_tensor_ = torch.tensor([prod_vocab[token] for token in prepareData(raw_prod.rstrip("\n"))],
+
+def data_process(filepaths, source_vocab, target_vocab, tokenizer):
+    raw_prod_iter = list(pd.read_csv(filepaths[0])['smiles'])
+    raw_react_iter = list(pd.read_csv(filepaths[1])['smiles'])
+    data = []
+    for (raw_prod, raw_react) in zip(raw_prod_iter, raw_react_iter):
+        prod_tensor_ = torch.tensor([source_vocab[token] for token in tokenizer(raw_prod)],
                             dtype=torch.long)
-    react_tensor_ = torch.tensor([react_vocab[token] for token in prepareData(raw_react.rstrip("\n"))],
+        react_tensor_ = torch.tensor([target_vocab[token] for token in tokenizer(raw_react)],
                             dtype=torch.long)
-    data.append((prod_tensor_,react_tensor_))
-  return data
+        data.append((prod_tensor_, react_tensor_))
+    return data
+
+
+def predict_preprocess(smiles, vocab, tokenizer):
+    # smiles = pd.read_csv(filepath)['smiles']
+    # smiles = list(smiles)
+    # data = []
+    # for raw_prod in smiles:
+    prod_tensor_ = torch.tensor([vocab[token] for token in tokenizer(smiles)], dtype=torch.long)
+    prod_batch=[torch.cat([torch.tensor([vocab['<bos>']]), prod_tensor_, torch.tensor([vocab['<eos>']])], dim=0)]
+    prod_batch = pad_sequence(prod_batch, padding_value=vocab['<pad>'])
+    # data.append(prod_batch)
+    return prod_batch
 
 
 
+def predict_preprocess(smiles, vocab, tokenizer):
+    # smiles = pd.read_csv(filepath)['smiles']
+    # smiles = list(smiles)
+    # data = []
+    # for raw_prod in smiles:
+    prod_tensor_ = torch.tensor([vocab[token] for token in tokenizer(smiles)], dtype=torch.long)
+    prod_batch=[torch.cat([torch.tensor([vocab['<bos>']]), prod_tensor_, torch.tensor([vocab['<eos>']])], dim=0)]
+    prod_batch = pad_sequence(prod_batch, padding_value=vocab['<pad>'])
+    # data.append(prod_batch)
+    return prod_batch
 
-def generate_batch(data_batch, prod_vocab, react_vocab):
-    prod_batch = [], react_batch = []
-    for prod_item, react_item in data_batch:
-        prod_batch.append(torch.cat([torch.tensor([prod_vocab['<bos>']]), prod_item, torch.tensor([prod_vocab['<eos>']])], dim=0))
-        react_batch.append(torch.cat([torch.tensor([react_vocab['<bos>']]), react_item, torch.tensor([react_vocab['<eos>']])], dim=0))
-    prod_batch = pad_sequence(prod_batch, padding_value=prod_vocab['<pad>'], batch_first=True)
-    react_batch = pad_sequence(react_batch, padding_value=react_vocab['<pad>'], batch_first=True)
-    return prod_batch,react_batch
+
+
 
 

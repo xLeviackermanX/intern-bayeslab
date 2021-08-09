@@ -2,7 +2,7 @@ import json
 from molflash.generator.utils.Seq2Seq_preprocess import string_to_int,int_to_string,to_categorical,preprocess_data,input_data,prepareData
 from molflash.utils.preprocess import PreprocessingFunc
 
-data_path = 'dataset.csv'
+data_path = '/home/bayeslabs/moltorch_architecture/mol/Generator/dataset.csv'
 smi = '<SRXN> C O c 1 c c 2 c ( c ( Cl ) c 1 O C ) C C N ( C ) C C 2 c 1 c c c c c 1 <ERXN>'
 
 def test_input_data():

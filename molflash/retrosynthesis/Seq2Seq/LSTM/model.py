@@ -33,10 +33,13 @@ import flash
 from flash.core.data.data_source import DataSource, DefaultDataKeys, DefaultDataSources
 from flash.core.data.process import Preprocess
 from flash.core.model import Task
-from flash.text.seq2seq.core.metric import BLEUScore
+from flash.text.seq2seq.translation.metric import BLEUScore
 
 from molflash.retrosynthesis.Seq2Seq.LSTM.data import Prd2ReactDataModule
-from molflash.models.Seq2Seq_retro import Seq2Seq,Encoder,Decoder
+from molflash.models.LSTM_encoder import Encoder
+from molflash.models.LSTM_decoder import Decoder
+ 
+from molflash.retrosynthesis.utils.Seq2Seq_preprocess import predict_preprocess
 
 CUDA_LAUNCH_BLOCKING=1
 
@@ -60,7 +63,7 @@ class Prd2ReactTask(Task):
         optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
         metrics: Union[pl.metrics.Metric, Mapping, Sequence, None] = None,
         learning_rate: float = 0.001,
-        tgt_vocab_size : int = None,
+        vocab = None,
     ):
 
         super().__init__(
@@ -74,7 +77,7 @@ class Prd2ReactTask(Task):
         self.encoder = encoder
         self.decoder = decoder
         self.optimizer = optimizer
-        self.tgt_vocab_size = tgt_vocab_size
+        self.vocab = vocab
         
 
     def forward(self, x: Any) -> Any:
@@ -114,12 +117,14 @@ class Prd2ReactTask(Task):
             The output which contains loss and metric results.
         """
         x, y = batch
+        x = x.permute(1,0)
+        y = y.permute(1,0)
         source = x
         target = y
-        loss = torch.zeros(1, requires_grad=True).cuda()
+        # loss = torch.zeros(1, requires_grad=True).cuda()
         batch_size = source.shape[0]
         target_len = target.shape[1]
-        target_vocab_size = self.tgt_vocab_size
+        target_vocab_size = len(self.vocab)
 
         outputs = torch.zeros(target_len, batch_size, target_vocab_size)
 
@@ -147,7 +152,8 @@ class Prd2ReactTask(Task):
         metric = self.metrics(y_hat.argmax(-1).permute(1,0), y.cpu())
 
         y_hat = y_hat.reshape(x.shape[0],-1,x.shape[1])
-
+        
+        loss = 0
         logs = {}
         output = {"y_hat": y_hat}
         output["y"] = y
@@ -161,6 +167,47 @@ class Prd2ReactTask(Task):
         output["loss"] = loss
         return output
 
+    def predict(self, x : Any):
+        
+        with torch.no_grad():
+            x = predict_preprocess(x)
+            x = x.permute(1,0)            
+            source = x
+            batch_size = source.shape[0]
+
+            y = torch.tensor([self.vocab['<bos>']]*batch_size)
+            target = y
+
+            target_len = 60
+            target_vocab_size = len(self.vocab)
+
+            outputs = torch.zeros(target_len, batch_size, target_vocab_size)
+
+            hidden, cell = self.forward(source)
+
+            hidden = hidden[:,-batch_size:,:].contiguous()
+            cell = cell[:,-batch_size:,:].contiguous()
+
+    
+            # Grab the first input to the Decoder which will be <SOS> token
+            x_dec = target[:,0].unsqueeze(0)
+            
+            for t in range(1, target_len):
+                # Use previous hidden, cell as context from encoder at start
+                output, hidden, cell = self.dec_forward(x_dec, hidden, cell)
+                # Store next output prediction
+                outputs[t] = output
+
+                # Get the best word the Decoder predicted (index in the vocabulary)
+                best_guess = output.argmax(1)
+                x_dec = best_guess.unsqueeze(0)
+
+            y_hat = outputs
+
+            smiles = [self.vocab.stoi(x) for x in y_hat]
+            return smiles
+
+
 
     def training_step(self, batch: Any, batch_idx: int) -> Tensor:
         outputs = self.step(batch,batch_idx)
@@ -168,6 +215,7 @@ class Prd2ReactTask(Task):
         self.log_dict({f"train_{k}": v for k, v in outputs["logs"].items()}, on_step=True, on_epoch=True, prog_bar=True)
         self.log("train_metric", outputs["metrics"])
         return loss
+
 
     def common_step(self, prefix: str, batch: Any) -> torch.Tensor:
         generated_tokens = self(batch)
@@ -217,14 +265,16 @@ if __name__=="__main__":
     dm.setup()
 
     
-    encoder_net = Encoder(input_size = dm.product_vocab_size, embedding_size = config.enc_emb_size, hidden_size = config.enc_hid_size, num_layers = config.enc_n_layers
+    encoder_net = Encoder(input_size = len(dm.source_vocab), embedding_size = config.enc_emb_size, hidden_size = config.enc_hid_size, num_layers = config.enc_n_layers
                     ,p = config.enc_drop)
 
-    decoder_net = Decoder(input_size = dm.reactant_vocab_size, embedding_size = config.dec_emb_size, hidden_size = config.dec_hid_size, output_size = dm.reactant_vocab_size
+    decoder_net = Decoder(input_size = len(dm.target_vocab), embedding_size = config.dec_emb_size, hidden_size = config.dec_hid_size, output_size = len(dm.target_vocab)
                      ,num_layers = config.dec_n_layers, p = config.dec_drop)
 
 
-    model = Prd2ReactTask(encoder=encoder_net, decoder=decoder_net,loss_fn = eval(config.loss_fn),optimizer=eval(config.optimizer),metrics = eval(config.metrics),tgt_vocab_size=dm.reactant_vocab_size)
+    model = Prd2ReactTask(encoder=encoder_net, decoder=decoder_net,loss_fn = eval(config.loss_fn),optimizer=eval(config.optimizer)
+                        ,metrics = eval(config.metrics), vocab=dm.target_vocab)
+
     tb_logger = pl_loggers.TensorBoardLogger('logs/LSTM')
 
     trainer = flash.Trainer(max_epochs = config.epochs, gpus = config.gpus, logger=tb_logger)

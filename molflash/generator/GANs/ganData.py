@@ -31,14 +31,13 @@ from sklearn.model_selection import train_test_split
 import rdkit
 from rdkit import Chem
 
-# import flash
-# from flash.core.data.data_source import DataSource, DefaultDataKeys, DefaultDataSources
-# from flash.core.data.process import Preprocess
-# from flash.core.data.transforms import ApplyToKeys
-# from flash.text.seq2seq.core.data import Seq2SeqFileDataSource
+import flash
+from flash.core.data.data_source import DataSource, DefaultDataKeys, DefaultDataSources
+from flash.core.data.process import Preprocess
+from flash.core.data.transforms import ApplyToKeys
+from flash.text.seq2seq.core.data import Seq2SeqFileDataSource
 
 
-# from molflash.utils.preprocess import PreprocessingFunc
 from molflash.generator.GANs.preprocess import Prepro
 
 class GANDataModule(pl.LightningDataModule):
@@ -81,8 +80,4 @@ class GANDataModule(pl.LightningDataModule):
         return DataLoader(self.predict_data, batch_size = 5)"""
 
 
-
-dm = GANDataModule("/home/bayeslabs/New_Arch/rationales.csv")
-dm.prepare_data()
-dm.setup()
 

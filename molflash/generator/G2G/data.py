@@ -15,7 +15,7 @@ import torch
 from molflash.models.jtnn import *
 from torch.utils.data import Dataset, DataLoader as TorchDataLoader
 from multiprocessing import Pool
-# from molflash.utils.preprocess import tensorize
+from molflash.utils.preprocess import tensorize
 from molflash.models.jtnn.vocab import Vocab
 
 PD = pd.DataFrame
@@ -91,11 +91,12 @@ class JTNNDataModule(pl.LightningDataModule):
         self.num_splits = num_splits
         self.data = None
         self.dataset = None
+        self.new_dir = None
         # if replicate is not None:  # expand is int
         #     self.data_files = self.data_files * replicate
 
     def get_data(self, path) -> PD:
-        return pd.read_csv(path, usecols=["smiles"], nrows = 2000)
+        return pd.read_csv(path, usecols=["smiles"], nrows=500000)
 
     def clean_data(self, data: PD, threshold=40) -> PD:
         for index, row in data.iterrows():
@@ -109,14 +110,17 @@ class JTNNDataModule(pl.LightningDataModule):
         return data
 
     def prepare_data(self) -> None:
+        print("Data")
         self.data = self.get_data(self.file_path)
+        print("DATA LOADED")
         self.data = self.clean_data(self.data)
+        print("DATA CLEANED")
 
         pool = Pool(self.num_workers)
         all_data = pool.map(tensorize, list(self.data["smiles"]))
         le = (len(all_data) + self.num_splits - 1) // self.num_splits
         os.mkdir("/home/trinity/github-repos/new/molFlash/molflash/generator/G2G/tensors/")
-
+        print("DIRECTORY CREATED")
         for split_id in range(self.num_splits):
             st = split_id * le
             sub_data = all_data[st: st + le]
@@ -140,11 +144,21 @@ class JTNNDataModule(pl.LightningDataModule):
 
         self.dataset = MolTreeDataset(batches, self.vocab, self.assm)
 
+
     def setup(self, stage: Optional[str] = None):
         self.data = self.dataset
+        # return
 
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader], Dict[str, DataLoader]]:
-        return TorchDataLoader(self.data, batch_size=1, num_workers=self.num_workers, collate_fn=lambda x:x[0])
+        # def collate_fn(batch):
+        #     smiles = batch
+        #     src = [tensorize(smi) for smi in smiles]
+        #     src = [_tensorize(sr, self.vocab) for sr in src]
+        #     src = torch.tensor(src)
+        #     tree_batch, jtenc_holder, mpn_holder, (jtmpn_holder, batch_idx) = src.T
+        #     return tree_batch, jtenc_holder, mpn_holder, (jtmpn_holder, batch_idx)
+
+        return TorchDataLoader(self.data, batch_size=self.batch_size, num_workers=self.num_workers, collate_fn=lambda x:x[0])
 
     # def val_dataloader(self) -> Union[DataLoader, List[DataLoader], Dict[str, DataLoader]]:
     #     return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=self.num_workers)
@@ -201,3 +215,9 @@ def set_batch_nodeID(mol_batch, vocab):
             node.idx = tot
             node.wid = vocab.get_index(node.smiles)
             tot += 1
+
+
+# HG2G DataModule
+class HG2GDataModule(pl.LightningDataModule):
+    def __init__(self):
+        s = 5

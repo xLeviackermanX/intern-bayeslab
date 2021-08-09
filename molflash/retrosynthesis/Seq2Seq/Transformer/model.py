@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, Type
+from torch._C import device
 
 from tqdm import tqdm
 import numpy as np
@@ -34,9 +35,11 @@ from flash.core.data.process import Preprocess
 from flash.core.model import Task
 from flash.text.seq2seq.translation.metric import BLEUScore
 
-from molflash.retrosynthesis.Seq2Seq.Transformer.data import Prd2ReactDataModule
-from molflash.models.Seq2Seq_transformer import Translation
-from molflash.models.transformer import Seq2SeqTransformer, create_mask, generate_square_subsequent_mask
+from molflash.utils.preprocess import PreprocessingFunc
+from molflash.retrosynthesis.Seq2Seq.Transformer.new_data import Prd2ReactDataModule
+
+from molflash.models.transformer import Seq2SeqModel, Encoder, Decoder
+from molflash.retrosynthesis.utils.Seq2Seq_preprocess import predict_preprocess, tokenize
 
 CUDA_LAUNCH_BLOCKING=1
 
@@ -60,9 +63,7 @@ class Prd2ReactTask(Task):
         optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
         metrics: Union[pl.metrics.Metric, Mapping, Sequence, None] = None,
         learning_rate: float = 0.01,
-        src_pad_index = None,
-        tgt_pad_index = None,
-        tgt_vocab_size = None,
+        vocab = None,
     ):
 
 
@@ -78,9 +79,7 @@ class Prd2ReactTask(Task):
         self.model = model
         self.optimizer = optimizer
         self.metrics = metrics
-        self.src_pad_index = src_pad_index
-        self.tgt_pad_index = tgt_pad_index
-        self.tgt_vocab_size = tgt_vocab_size
+        self.vocab = vocab
 
 
     def step(self, batch: Any, batch_idx: int) -> Any:
@@ -96,41 +95,26 @@ class Prd2ReactTask(Task):
 
         x, y = batch
 
-
-        batch_size = x.shape[0]
-        seq_len = x.shape[1]
-
-        target_len = seq_len
-
-        outputs = torch.zeros(target_len, batch_size, self.tgt_vocab_size).cuda()
+        x = x.permute(1,0)
+        y = y.permute(1,0)
 
 
-        tgt_input = y[:,0].unsqueeze(1)
-        
-        for t in range(0, target_len):
+        decoder_output = self.model(x,y[:,:-1])
+    
+        target = y[:,1:]
 
-            output = self.model(x,tgt_input)
-
-            output = output.permute(1,0,2)
-
-            outputs[t] = output
-
-            best_guess = output.argmax(-1)
-
-            best_guess = best_guess.permute(1,0)
-
-            tgt_input = best_guess
-
-        y_hat = outputs
+        y_hat = decoder_output
 
         loss = 0
-        metric = self.metrics(y_hat.permute(1,0,2).argmax(-1),y.int())
+        metric = self.metrics(y_hat.argmax(-1),target.int())    #batch,Seq_len,vocab
 
         logs = {}
 
         output = {"y_hat": y_hat}
-        output["y"] = y
-        loss += self.loss_fn(y_hat.permute(1,2,0),y)
+        output["y"] = target
+
+        loss += self.loss_fn(y_hat.permute(0,2,1), target)    #batch,vocab,seq_len
+
         logs["loss"] = loss
         output["metrics"] = metric
         logs['metrics'] = metric
@@ -142,6 +126,60 @@ class Prd2ReactTask(Task):
 
         return output
 
+    def predict(self, x : Any, max_length = 100):
+
+        with torch.no_grad():
+
+            source = predict_preprocess(x, self.vocab, tokenize)
+            print(source)
+
+            source = source.permute(1,0)
+            # source = torch.LongTensor(source).unsqueeze(0)
+
+            source_mask = self.model.get_source_mask(source)
+
+            encoder_output = self.model.encoder_stack(source,source_mask)
+
+            target_bos = [self.vocab['<bos>']]
+            target_eos = self.vocab['<eos>']
+            # target_to_idx = []
+
+            i = 0
+            while i < max_length:
+        
+                #step 8.1 convert the current output sentence prediction into a tensor with a batch dimension
+                # target_bos = torch.LongTensor(target_bos).unsqueeze(0)
+                
+                #step 8.2 create a target sentence mask
+                target_mask = transformer_model.get_target_mask(target_bos)
+                
+                #step 8.3 place the current output, encoder output and both masks into the decoder
+                with torch.no_grad():
+                    decoder_output,decoder_attention = transformer_model.decoder_stack(target_bos,encoder_output,
+                                                                                    source_mask,target_mask)
+                
+                #step 8.4 get next output token prediction from decoder along with attention
+                next_predicted_token = decoder_output.argmax(2)[:,-1].item()
+                
+                #step 8.5  add prediction to current output sentence prediction
+                target_bos.append(next_predicted_token)
+                
+                #step 8.6 break if the prediction was an <eos> token
+                if next_predicted_token == target_eos:
+                    break
+                i+=1 
+            
+            end = time()
+            
+            #step 9 convert the output sentence from indexes to tokens
+            target_tokens = [self.vocab.itos[idx] for idx in target_bos]
+            
+            # if verbose is True:
+            #     print(f'Time taken to translate {end - start} seconds')
+            
+            # step 10 return the output sentence (with the <sos> token removed) and the attention from the last layer
+            return target_tokens[1:-1]        #,decoder_attention
+
 
     def training_step(self, batch: Any, batch_idx: int) -> Tensor:
         outputs = self.step(batch,batch_idx)
@@ -149,7 +187,6 @@ class Prd2ReactTask(Task):
         self.log_dict({f"train_{k}": v for k, v in outputs["logs"].items()}, on_step=True, on_epoch=True, prog_bar=True)
         self.log("train_metric", outputs["metrics"])
         return loss
-
 
     def common_step(self, prefix: str, batch: Any) -> Tensor:
         generated_tokens = self(batch)
@@ -193,25 +230,46 @@ if __name__=="__main__":
     configFile = OmegaConf.load(args.config)
     config = configFile.config
 
-    dm = Prd2ReactDataModule(config.filePath, batch_size=config.batch_size, split=config.split)
+    dm = Prd2ReactDataModule(config.filePath, batch_size=config.batch_size, splits=config.split)
     dm.prepare_data()
     dm.setup()
 
+ 
 
-    transformer_model = Translation(src_vocab_size=dm.product_vocab_size,tgt_vocab_size=dm.reactant_vocab_size,src_pad_index = dm.product_pad_index,
-                 tgt_pad_index = dm.reactant_pad_index)
+    source_pad_index = dm.source_vocab['<pad>']
+    target_pad_index = dm.target_vocab['<pad>'] 
 
-    src_pad_index=dm.product_pad_index
-    
-    model = Prd2ReactTask(model = transformer_model,loss_fn = eval(config.loss_fn),optimizer=eval(config.optimizer), metrics = eval(config.metrics), src_pad_index = dm.product_pad_index, tgt_pad_index = dm.reactant_pad_index, tgt_vocab_size = dm.reactant_vocab_size) 
+    print(source_pad_index)  
+
+    encoder_stack = Encoder(input_dimension = len(dm.source_vocab), hidden_dimension = config.encoder_hid_dim,
+                    number_encoder_layers = config.encoder_num_layers, num_attention_heads = config.encoder_nheads, 
+                    pointwise_ff_dim = config.encoder_ff_dim, dropout = config.encoder_dropout)
+
+    decoder_stack = Decoder(output_dimension = len(dm.target_vocab), hidden_dimension = config.decoder_hid_dim,
+                    number_decoder_layers = config.decoder_num_layers, num_attention_heads = config.decoder_nheads, 
+                    pointwise_ff_dim = config.decoder_ff_dim, dropout = config.decoder_dropout)
+
+
+    transformer_model = Seq2SeqModel(encoder_stack, decoder_stack, source_pad_idx = dm.source_vocab['<pad>'],
+                                                         target_pad_idx = dm.target_vocab['<pad>'])
+
+    model = Prd2ReactTask(model = transformer_model, loss_fn = eval(config.loss_fn), optimizer=eval(config.optimizer), 
+                                    metrics = eval(config.metrics), learning_rate = config.learning_rate, vocab = dm.target_vocab) 
+
     tb_logger = pl_loggers.TensorBoardLogger('logs/Transformer')
 
 
-    trainer = flash.Trainer(max_epochs=config.epochs,gpus=1, logger=tb_logger)
+    trainer = flash.Trainer(max_epochs=config.epochs,gpus=0, logger=tb_logger)
     trainer.fit(model, datamodule=dm)
 
     trainer.test(model, datamodule=dm)
     
+
+    # ckpt_file_path = '/home/bayeslabs/molFlash/molflash/retrosynthesis/Seq2Seq/Transformer/logs/Transformer/default/version_35/checkpoints/epoch=9-step=279.ckpt'
+    # ckpt = torch.load(ckpt_file_path)
+
+    # model.load_state_dict(ckpt["state_dict"])
+    # print(model.predict('O=C(c1cc(Cc2n[nH]c(=O)c3ccccc23)ccc1F)N1CCN(C(=O)C2CC2)CC1'))
     
     
 

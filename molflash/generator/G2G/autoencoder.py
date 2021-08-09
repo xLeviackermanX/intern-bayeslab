@@ -29,6 +29,7 @@ class G2GTask(Task):
 
     def __init__(
             self,
+            trial=None,
             encoder: Optional[nn.Module] = None,
             decoder: Optional[nn.Module] = None,
             loss_fn_1: Optional[Union[Callable, Mapping, Sequence]] = None,
@@ -47,7 +48,6 @@ class G2GTask(Task):
         self.optimizer = optimizer
         self.metrics = metrics
         self.learning_rate = learning_rate
-        # self.loss_fn = loss_fn
         self.encoder = encoder
         self.decoder = decoder
         self.metrics = metrics
@@ -85,6 +85,7 @@ class G2GTask(Task):
         # decoder pass
         output = self.decoder(z)
         outputs = {}
+        
         # splitting edge and node features
         edge_ft = output[:8000].view(8000).float()
         node_ft = output[8000:].reshape(40, 40)
@@ -111,7 +112,7 @@ class G2GTask(Task):
         outputs["loss"] = loss
 
         return outputs
-
+    # TODO -> add the function to convert to smiles
     # def get_atoms(self, data: TENSOR) -> List:
     #     symbol_set = ['C', 'N', 'O', 'S', 'F', 'H', 'P', 'Cl', 'Br', 'K', 'Mg', 'Si']
     #     atoms_list = []

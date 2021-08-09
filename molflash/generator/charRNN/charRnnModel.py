@@ -114,7 +114,7 @@ if __name__=="__main__":
 
     model = eval(config.modelName)(vocabulary=dm.vocab,config=config)
 
-    model = CharRnnTask(model=model,loss_fn=eval(config.loss_fn))
+    model = CharRnnTask(model=model,loss_fn=eval(config.loss_fn),learning_rate = config.learning_rate)
 
     trainer = flash.Trainer(max_epochs=config.epochs,gpus=config.gpus, progress_bar_refresh_rate=20)
 

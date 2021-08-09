@@ -1,0 +1,20 @@
+config:
+  filePath: '/home/bayeslabs/molFlash/molflash/generator/VAE/train.csv'
+  q_cell: 'gru'
+  q_bidir: False
+  q_d_h: 256
+  q_n_layers: 1
+  q_dropout: 0.5
+  d_cell: 'gru'
+  d_n_layers: 3
+  d_dropout: 0
+  d_z: 128
+  d_d_h: 512
+  freeze_embeddings: False
+  batch_size: 128
+  learning_rate: 0.0003
+  loss_fn1: 
+  loss_fn2: 
+  optimizer: torch.optim.Adam
+  epochs: 50
+  splits: [0.8,0.1,0.1]

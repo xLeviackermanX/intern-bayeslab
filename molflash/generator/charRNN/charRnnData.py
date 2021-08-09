@@ -56,7 +56,7 @@ class charRnnDataModule(pl.LightningDataModule):
         return CharVocab.from_data(data)
 
     def prepare_data(self) -> None:
-        self.data = pd.read_csv(self.filePath,nrows=1000)
+        self.data = pd.read_csv(self.filePath)
         self.data = self.data['SMILES']
         self.vocab = self.get_vocabulary(self.data)
         torch.save(self.vocab, 'vocab.pt')

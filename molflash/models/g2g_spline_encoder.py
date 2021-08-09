@@ -13,8 +13,8 @@ class SplineEncoder(nn.Module):
     """
     def __init__(self, in_channels=40, hidden_channels=40, out_channels=40):
         super(SplineEncoder, self).__init__()
-        self.gcn1 = SplineConv(in_channels, hidden_channels)
-        self.gcn2 = SplineConv(hidden_channels, out_channels)
+        self.gcn1 = SplineConv(in_channels, hidden_channels, dim=2, kernel_size=2)
+        self.gcn2 = SplineConv(hidden_channels, out_channels, dim=2, kernel_size=2)
 
     def forward(self, x, edge_index):
         x = F.relu(self.gcn1(x, edge_index))
