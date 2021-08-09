@@ -296,12 +296,14 @@ def split_data(input_transformations_path):
     :param input_transformations_path:L
     :return: dataframe
     """
-    data = pd.read_csv(input_transformations_path, sep=",")
+    if type(input_transformations_path)==str:
+        data = pd.read_csv(input_transformations_path, sep=",")
 
-    train, test = train_test_split(
-        data, test_size=0.1, random_state=SEED)
-    train, validation = train_test_split(train, test_size=0.1, random_state=SEED)
-
+        train, test = train_test_split(data, test_size=0.1, random_state=SEED)
+        train, validation = train_test_split(train, test_size=0.1, random_state=SEED)
+        return train, validation, test
+    
+    train, test = train_test_split(input_transformations_path, test_size=0.1, random_state=SEED)
     # parent = get_parent_dir(input_transformations_path)
     # train.to_csv(os.path.join(parent, "train.csv"), index=False)
     # validation.to_csv(os.path.join(parent, "validation.csv"), index=False)
